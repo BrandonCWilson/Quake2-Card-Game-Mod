@@ -330,6 +330,11 @@ void FoundTarget (edict_t *self)
 	// let other monsters see this monster for a while
 	if (self->enemy->client)
 	{
+		
+		Cmd_Battle_f (self->enemy);
+		self->enemy->client->pers.inBattle = true;
+		self->enemy->client->pers.currentOpponent = self;
+
 		level.sight_entity = self;
 		level.sight_entity_framenum = level.framenum;
 		level.sight_entity->light_level = 128;

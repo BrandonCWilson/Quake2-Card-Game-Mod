@@ -380,6 +380,12 @@ void Cmd_Use_f (edict_t *ent)
 	gitem_t		*it;
 	char		*s;
 
+	if (!ent->client->pers.inBattle)
+	{
+		return;
+	}
+
+	/*
 	s = gi.args();
 	it = FindItem (s);
 	if (!it)
@@ -398,6 +404,29 @@ void Cmd_Use_f (edict_t *ent)
 		gi.cprintf (ent, PRINT_HIGH, "Out of item: %s\n", s);
 		return;
 	}
+	*/
+	index = ent->client->pers.currentHand[strtol(gi.args(), (char **)NULL, 10)];
+
+	if (ent->client->pers.currentHand[index] == CARD_SHOTGUN)
+		{
+			it = FindItem ("Shotgun");
+		}
+		else if (ent->client->pers.currentHand[index] == CARD_PUNCH)
+		{
+			it = FindItem ("Machinegun");
+		}
+		else if (ent->client->pers.currentHand[index] == CARD_BITE)
+		{
+			it = FindItem ("Shotgun");
+		}
+		else if (ent->client->pers.currentHand[index] == CARD_HEAL)
+		{
+			it = FindItem ("Shotgun");
+		}
+		else if (ent->client->pers.currentHand[index] == CARD_BLOCK)
+		{
+			it = FindItem ("Shotgun");
+		}
 
 	it->use (ent, it);
 }
@@ -918,6 +947,11 @@ void ClientCommand (edict_t *ent)
 	if (Q_stricmp (cmd, "help") == 0)
 	{
 		Cmd_Help_f (ent);
+		return;
+	}
+	if (Q_stricmp (cmd, "battle") == 0)
+	{
+		Cmd_Battle_f (ent);
 		return;
 	}
 

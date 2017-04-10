@@ -87,6 +87,16 @@ typedef enum
 	AMMO_SLUGS
 } ammo_t;
 
+//Card Collection
+typedef enum
+{
+	CARD_SHOTGUN,
+	CARD_PUNCH,
+	CARD_BITE,
+	CARD_HEAL,
+	CARD_BLOCK
+} card_t;
+
 
 //deadflag
 #define DEAD_NO					0
@@ -602,6 +612,7 @@ int ArmorIndex (edict_t *ent);
 int PowerArmorType (edict_t *ent);
 gitem_t	*GetItemByIndex (int index);
 qboolean Add_Ammo (edict_t *ent, gitem_t *item, int count);
+qboolean Add_Cards (edict_t *ent, gitem_t *item, int count);
 void Touch_Item (edict_t *ent, edict_t *other, cplane_t *plane, csurface_t *surf);
 
 //
@@ -844,6 +855,14 @@ typedef struct
 	int			helpchanged;
 
 	qboolean	spectator;			// client is a spectator
+
+	//Card Inventory and Decks
+	int collection[5];
+	int currentHand[3];
+	int numCards;
+	qboolean inBattle;
+	edict_t *currentOpponent;
+
 } client_persistant_t;
 
 // client data that stays across deathmatch respawns

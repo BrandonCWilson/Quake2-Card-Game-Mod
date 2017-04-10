@@ -2,8 +2,11 @@
 
 
 qboolean	Pickup_Weapon (edict_t *ent, edict_t *other);
+qboolean	Pickup_Card (edict_t *ent, edict_t *other);
 void		Use_Weapon (edict_t *ent, gitem_t *inv);
+void		Use_Card (edict_t *ent, gitem_t *inv);
 void		Drop_Weapon (edict_t *ent, gitem_t *inv);
+void		Drop_Card (edict_t *ent, gitem_t *inv);
 
 void Weapon_Blaster (edict_t *ent);
 void Weapon_Shotgun (edict_t *ent);
@@ -16,6 +19,9 @@ void Weapon_Grenade (edict_t *ent);
 void Weapon_GrenadeLauncher (edict_t *ent);
 void Weapon_Railgun (edict_t *ent);
 void Weapon_BFG (edict_t *ent);
+
+void Card_Shotgun (edict_t *ent);
+void Card_Block (edict_t *ent);
 
 gitem_armor_t jacketarmor_info	= { 25,  50, .30, .00, ARMOR_JACKET};
 gitem_armor_t combatarmor_info	= { 50, 100, .60, .30, ARMOR_COMBAT};
@@ -457,6 +463,27 @@ qboolean Add_Ammo (edict_t *ent, gitem_t *item, int count)
 
 	if (ent->client->pers.inventory[index] > max)
 		ent->client->pers.inventory[index] = max;
+
+	return true;
+}
+
+
+qboolean Add_Cards (edict_t *ent, gitem_t *item, int count)
+{
+	int			index;
+	int			max;
+	gitem_t		*cardName;
+
+	cardName = FindItem(item->ammo);
+
+	if (!ent->client)
+		return false;
+	if (ent->client->pers.collection[item->tag] == NULL)
+		ent->client->pers.collection[item->tag] = 0;
+	ent->client->pers.collection[item->tag] += count;
+
+
+	gi.bprintf(PRINT_CHAT, "Cards added: %s", cardName->pickup_name);
 
 	return true;
 }
@@ -1294,10 +1321,10 @@ always owned, never in the world
 */
 	{
 		"weapon_shotgun", 
-		Pickup_Weapon,
-		Use_Weapon,
-		Drop_Weapon,
-		Weapon_Shotgun,
+		Pickup_Card,
+		Card_Shotgun,
+		Drop_Card,
+		Card_Shotgun,
 		"misc/w_pkup.wav",
 		"models/weapons/g_shotg/tris.md2", EF_ROTATE,
 		"models/weapons/v_shotg/tris.md2",
@@ -1340,10 +1367,10 @@ always owned, never in the world
 */
 	{
 		"weapon_machinegun", 
-		Pickup_Weapon,
-		Use_Weapon,
-		Drop_Weapon,
-		Weapon_Machinegun,
+		Pickup_Card,
+		Use_Card,
+		Drop_Card,
+		Card_Block,
 		"misc/w_pkup.wav",
 		"models/weapons/g_machn/tris.md2", EF_ROTATE,
 		"models/weapons/v_machn/tris.md2",
