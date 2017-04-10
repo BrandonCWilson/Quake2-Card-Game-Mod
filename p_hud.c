@@ -316,6 +316,159 @@ void HelpComputer (edict_t *ent)
 	gi.unicast (ent, true);
 }
 
+/*
+==================
+Battle_UI
+
+Draw the card selection screen
+==================
+*/
+void Battle_UI (edict_t *ent)
+{
+	char	string[1024];
+	char	*sk;
+	int cardPositionX;
+	int cardPositionY;
+	int cardCount;
+	char	cardName[3][1024];
+	char	cardDesc[4][1024];
+
+	cardCount = ent->client->pers.numCards;
+	
+	cardPositionX = 32 - cardCount * 75;
+	cardPositionY = 200;
+
+	if (skill->value == 0)
+		sk = "easy";
+	else if (skill->value == 1)
+		sk = "medium";
+	else if (skill->value == 2)
+		sk = "hard";
+	else
+		sk = "hard+";
+
+	while (cardCount > 0)
+	{
+		if (ent->client->pers.currentHand[cardCount - 1] == CARD_SHOTGUN)
+		{
+			Com_sprintf (cardName[cardCount - 1], sizeof(cardName[cardCount - 1]),
+				"Shotgun Attack");
+		}
+		else if (ent->client->pers.currentHand[cardCount - 1] == CARD_PUNCH)
+		{
+			Com_sprintf (cardName[cardCount - 1], sizeof(cardName[cardCount - 1]),
+				"Brute Punch");
+		}
+		else if (ent->client->pers.currentHand[cardCount - 1] == CARD_BITE)
+		{
+			Com_sprintf (cardName[cardCount - 1], sizeof(cardName[cardCount - 1]),
+				"Vicious Bite");
+		}
+		else if (ent->client->pers.currentHand[cardCount - 1] == CARD_HEAL)
+		{
+			Com_sprintf (cardName[cardCount - 1], sizeof(cardName[cardCount - 1]),
+				"Restore Health");
+		}
+		else if (ent->client->pers.currentHand[cardCount - 1] == CARD_BLOCK)
+		{
+			Com_sprintf (cardName[cardCount - 1], sizeof(cardName[cardCount - 1]),
+				"Block Attack");
+		}
+		else
+		{
+			Com_sprintf (cardName[cardCount - 1], sizeof(cardName[cardCount - 1]),
+				"Error: Unknown card.");
+		}
+
+		cardCount -= 1;
+	}
+
+	cardCount = ent->client->pers.numCards;
+
+	while (cardCount > 0)
+	{
+		if (ent->client->pers.currentHand[cardCount - 1] == CARD_SHOTGUN)
+		{
+			strcpy (cardDesc[cardCount - 1],
+				"Deal 3 damage to the enemy, \n 5 times.");
+			
+		}
+		else if (ent->client->pers.currentHand[cardCount - 1] == CARD_PUNCH)
+		{
+			Com_sprintf (cardDesc[cardCount - 1], sizeof(cardDesc[cardCount - 1]),
+				"Deal 10 damage to the enemy.");
+		}
+		else if (ent->client->pers.currentHand[cardCount - 1] == CARD_BITE)
+		{
+			Com_sprintf (cardDesc[cardCount - 1], sizeof(cardDesc[cardCount - 1]),
+				"Deal 10 damage to the enemy,\n and shuffle this back into\n your deck.");
+		}
+		else if (ent->client->pers.currentHand[cardCount - 1] == CARD_HEAL)
+		{
+			Com_sprintf (cardDesc[cardCount - 1], sizeof(cardDesc[cardCount - 1]),
+				"Heal yourself for 15 health.");
+		}
+		else if (ent->client->pers.currentHand[cardCount - 1] == CARD_BLOCK)
+		{
+			Com_sprintf (cardDesc[cardCount - 1], sizeof(cardDesc[cardCount - 1]),
+				"During this turn, \n all damage is reduced to 1.");
+		}
+		else
+		{
+			Com_sprintf (cardDesc[cardCount - 1], sizeof(cardDesc[cardCount - 1]),
+				"Error: Unknown card.");
+		}
+
+		cardCount -= 1;
+	}
+
+
+	// send the layout
+	Com_sprintf (string, sizeof(string),
+		"xv %i yv %i picn help "			// background
+		"xv %i yv %i cstring2 \"%s\" "		// level name
+		"xv %i yv %i cstring2 \"%s\" "		// help 1
+		
+		"xv %i yv %i picn help "			// background
+		"xv %i yv %i cstring2 \"%s\" "		// level name
+		"xv %i yv %i cstring2 \"%s\" "		// help 1
+		
+		"xv %i yv %i picn help "			// background
+		"xv %i yv %i cstring2 \"%s\" "		// level name
+		"xv %i yv %i cstring2 \"%s\" ",		// help 1,
+		
+		32 + cardPositionX,
+		8 + cardPositionY,
+		0 + cardPositionX,
+		24 + cardPositionY,
+		cardName[0], 
+		0 + cardPositionX,
+		54 + cardPositionY,
+		cardDesc[0],
+		
+		32,
+		8 + cardPositionY,
+		0,
+		24 + cardPositionY,
+		cardName[1], 
+		0,
+		54 + cardPositionY,
+		cardDesc[1],
+		
+		32 - cardPositionX,
+		8 + cardPositionY,
+		0 - cardPositionX,
+		24 + cardPositionY,
+		cardName[2], 
+		0 - cardPositionX,
+		54 + cardPositionY,
+		cardDesc[2]);
+
+	gi.WriteByte (svc_layout);
+	gi.WriteString (string);
+	gi.unicast (ent, true);
+}
+
 
 /*
 ==================
@@ -345,6 +498,29 @@ void Cmd_Help_f (edict_t *ent)
 	ent->client->showhelp = true;
 	ent->client->pers.helpchanged = 0;
 	HelpComputer (ent);
+}
+
+void Cmd_Battle_f (edict_t *ent)
+{
+	// this is for backwards compatability
+	if (deathmatch->value)
+	{
+		Cmd_Score_f (ent);
+		return;
+	}
+
+	ent->client->showinventory = false;
+	ent->client->showscores = false;
+
+	if (ent->client->showhelp && (ent->client->pers.game_helpchanged == game.helpchanged))
+	{
+		ent->client->showhelp = false;
+		return;
+	}
+
+	ent->client->showhelp = true;
+	ent->client->pers.helpchanged = 0;
+	Battle_UI (ent);
 }
 
 

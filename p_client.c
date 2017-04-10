@@ -607,6 +607,20 @@ void InitClientPersistant (gclient_t *client)
 	client->pers.max_cells		= 200;
 	client->pers.max_slugs		= 50;
 
+	client->pers.collection[0]	= 0;
+	client->pers.collection[1]	= 0;
+	client->pers.collection[2]	= 0;
+	client->pers.collection[3]	= 0;
+	client->pers.collection[4]	= 0;
+
+	client->pers.currentHand[0]		= 0;
+	client->pers.currentHand[1]		= 0;
+	client->pers.currentHand[2]		= 0;
+
+	client->pers.numCards = 4;
+	client->pers.inBattle = false;
+	client->pers.currentOpponent = NULL;
+
 	client->pers.connected = true;
 }
 

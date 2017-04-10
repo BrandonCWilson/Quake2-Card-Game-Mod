@@ -143,6 +143,19 @@ qboolean Pickup_Weapon (edict_t *ent, edict_t *other)
 	return true;
 }
 
+qboolean Pickup_Card (edict_t *ent, edict_t *other)
+{
+	int			index;
+	gitem_t		*ammo;
+
+	ammo = FindItem (ent->item->ammo);
+
+	Add_Cards (other, ent->item, 100);
+
+	return true;
+}
+
+
 
 /*
 ===============
@@ -320,6 +333,11 @@ void Use_Weapon (edict_t *ent, gitem_t *item)
 	ent->client->newweapon = item;
 }
 
+void Use_Card (edict_t *ent, gitem_t *item)
+{
+	gi.bprintf(PRINT_CHAT, "stop");
+}
+
 
 
 /*
@@ -344,6 +362,28 @@ void Drop_Weapon (edict_t *ent, gitem_t *item)
 
 	Drop_Item (ent, item);
 	ent->client->pers.inventory[index]--;
+}
+
+void Drop_Card (edict_t *ent, gitem_t *item)
+{
+	//Change Card Drop Later
+	/*
+	int		index;
+
+	if ((int)(dmflags->value) & DF_WEAPONS_STAY)
+		return;
+
+	index = ITEM_INDEX(item);
+	// see if we're already using it
+	if ( ((item == ent->client->pers.weapon) || (item == ent->client->newweapon))&& (ent->client->pers.inventory[index] == 1) )
+	{
+		gi.cprintf (ent, PRINT_HIGH, "Can't drop current weapon\n");
+		return;
+	}
+
+	Drop_Item (ent, item);
+	ent->client->pers.inventory[index]--;
+	*/
 }
 
 
@@ -1214,6 +1254,41 @@ void Weapon_Shotgun (edict_t *ent)
 	static int	fire_frames[]	= {8, 9, 0};
 
 	Weapon_Generic (ent, 7, 18, 36, 39, pause_frames, fire_frames, weapon_shotgun_fire);
+}
+
+void card_shotgun_fire (edict_t *ent)
+{
+	int dmgCount;
+
+	dmgCount = 5;
+
+	if (ent->client->pers.currentOpponent->takedamage)
+	{
+		while (dmgCount > 0)
+		{
+			T_Damage (ent->client->pers.currentOpponent, ent, ent, ent->client->v_angle, ent->s.origin, ent->movedir, 3, 0, 0, MOD_SHOTGUN);
+			dmgCount -= 1;
+		}
+	}
+}
+
+void Card_Shotgun (edict_t *ent, edict_t *item)
+{
+	card_shotgun_fire(ent);
+}
+
+void card_block_attack (edict_t *ent) 
+{
+	
+}
+
+
+void Card_Block (edict_t *ent)
+{
+	static int	pause_frames[]	= {22, 28, 34, 0};
+	static int	fire_frames[]	= {8, 9, 0};
+
+	Weapon_Generic (ent, 7, 18, 36, 39, pause_frames, fire_frames, card_block_attack);
 }
 
 
