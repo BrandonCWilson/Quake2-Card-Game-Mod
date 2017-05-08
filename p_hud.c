@@ -387,7 +387,7 @@ char * Get_Card_Desc (card_t card)
 	else if (card == CARD_BLOCK)
 	{
 		Com_sprintf(cardDesc, sizeof(cardDesc),
-			"During this turn, \n all damage is reduced to 1.");
+			"During this turn, \n the first damage is reduced to 1.");
 	}
 	else if (card == CARD_HEAL)
 	{
