@@ -399,6 +399,14 @@ void M_MoveFrame (edict_t *self)
 
 void monster_think (edict_t *self)
 {
+	if (level.inBattle)
+	{
+		// do "nothing"
+		// put off the think function until the next frame
+		self->nextthink = level.time + FRAMETIME;
+		return;
+	}
+
 	M_MoveFrame (self);
 	if (self->linkcount != self->monsterinfo.linkcount)
 	{

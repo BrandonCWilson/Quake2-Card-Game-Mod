@@ -4,6 +4,9 @@
 #include "m_player.h"
 
 
+void Move_Cards (edict_t *ent, int *currentHand);
+void Draw_Card (edict_t *ent, int *deck, int *currentHand);
+
 static qboolean	is_quad;
 static byte		is_silenced;
 
@@ -1256,6 +1259,597 @@ void Weapon_Shotgun (edict_t *ent)
 	Weapon_Generic (ent, 7, 18, 36, 39, pause_frames, fire_frames, weapon_shotgun_fire);
 }
 
+
+void update_battle_log (edict_t *ent, char *nextLogs)
+{
+	int counter;
+	int numToMove;
+
+	counter = 0;
+	if (ent->client->pers.numInLog == 3)
+	{
+		// Move the battle log to ignore old battles
+		numToMove = 2;
+		
+		while (numToMove > 0)
+		{
+			Com_sprintf(ent->client->pers.battleLog[numToMove - 1], sizeof(ent->client->pers.battleLog[numToMove - 1]),
+				"%s",
+				ent->client->pers.battleLog[numToMove]);
+
+			numToMove -= 1;
+		}
+	}
+	// Iterate to the next log
+	// FIXME
+	// leftover constants from debugging. change 0 to adjust for current log
+	// incrementing first handles the case where numInLog is 0
+	ent->client->pers.numInLog += 1;
+	if (ent->client->pers.numInLog > 3)
+	{
+		ent->client->pers.numInLog = 3;
+	}
+
+	Com_sprintf(ent->client->pers.battleLog[ent->client->pers.numInLog - 1], sizeof(ent->client->pers.battleLog[ent->client->pers.numInLog - 1]),
+			"%s",
+			nextLogs);
+
+}
+
+void shuffle_card (edict_t *targetEnt, int cardToShuffle, int *targetDeck, int numToShuffle)
+{
+	// add the card to their deck
+	targetDeck[cardToShuffle] += numToShuffle;
+
+	// FIXME
+	// update their deck count? not sure where deckSize is being updated for the UI
+}
+
+void restore_health (edict_t *targetEnt, int health)
+{
+	targetEnt->health += health;
+	if (targetEnt->health > targetEnt->max_health)
+	{
+		targetEnt->health = targetEnt->max_health;
+	}
+}
+
+void card_heal_effect (edict_t *ent)
+{
+	restore_health (ent, 15);
+}
+
+void card_bite_effect (edict_t *ent)
+{
+	edict_t *targetEnt;
+	int		*targetDeck;
+	//FIXME
+	if (ent->client)
+	{
+		targetEnt = ent->client->pers.currentOpponent;
+		targetDeck = ent->client->pers.currentOpponent->deck;
+	}
+	else
+	{
+		targetEnt = ent->enemy;
+		targetDeck = ent->enemy->client->pers.deck;
+	}
+
+	shuffle_card(targetEnt, CARD_BITE, targetDeck, 1);
+
+}
+
+void card_hijack_effect (edict_t *ent)
+{
+	//FIXME
+	edict_t *targetEnt;
+	int		*myDeck;
+
+	int		deckSize;
+	int		*otherDeck;
+	int		stolenCard;
+	int		cardThreshold;
+
+	int		counter;
+	
+	gi.bprintf(PRINT_CHAT, "There's a bug in card_hijack.\n");
+	//FIXME
+	if (ent->client)
+	{
+		targetEnt = ent->client->pers.currentOpponent;
+		otherDeck = ent->client->pers.currentOpponent->deck;
+		myDeck	  = ent->client->pers.deck;
+	}
+	else
+	{
+		targetEnt = ent->enemy;
+		otherDeck = ent->enemy->client->pers.deck;
+		myDeck	  = ent->deck;
+	}
+
+	counter = 0;
+	deckSize = 0;
+	while (counter < CARD_MAX)
+	{
+		deckSize += otherDeck[counter];
+		counter += 1;
+	}
+	if (deckSize <= 0)
+	{
+		// Player is out of cards
+		// There is nothing to hijack
+		gi.bprintf(PRINT_CHAT, "There is nothing to hijack!\n");
+		return;
+	}
+
+	stolenCard = rand() % deckSize;
+	counter = 0;
+	cardThreshold = 0;
+	while (counter < CARD_MAX)
+	{
+		cardThreshold += otherDeck[counter];
+		if (stolenCard <= cardThreshold)
+		{
+			stolenCard = counter;
+			// "shuffle" the card out of their deck
+			shuffle_card(targetEnt, stolenCard, otherDeck, -1);
+			// shuffle it into ours
+			shuffle_card(ent, stolenCard, myDeck, 1);
+			if (ent->client)
+			{
+				gi.bprintf(PRINT_CHAT, "Stole a card: %i\n", stolenCard);
+			}
+			break;
+		}
+		counter += 1;
+	}
+	if (counter == CARD_MAX)
+	{
+		//This should never happen
+		gi.bprintf(PRINT_CHAT, "ERROR: Hijack did not work.\n");
+	}
+}
+
+int * determine_card_stats (int card)
+{
+	static int stats[4];	
+	
+
+	//stats[0] = damage;
+	//stats[1] = times_dealt;
+	//stats[2] = block?
+	//stats[3] = mod;
+	if (card == CARD_SHOTGUN)
+	{
+		stats[0] = 3;
+		stats[1] = 5;
+		stats[2] = 0;
+		stats[3] = MOD_SHOTGUN;
+	}
+	else if (card == CARD_PUNCH)
+	{
+		stats[0] = 10;
+		stats[1] = 1;
+		stats[2] = 0;
+		stats[3] = MOD_HIT;
+	}
+	else if (card == CARD_BITE)
+	{
+		stats[0] = 10;
+		stats[1] = 1;
+		stats[2] = 0;
+		stats[3] = MOD_HIT;
+	}
+	else if (card == CARD_HEAL)
+	{
+		stats[0] = 0;
+		stats[1] = 0;
+		stats[2] = 0;
+		stats[3] = MOD_UNKNOWN;
+	}
+	else if (card == CARD_BLOCK)
+	{
+		stats[0] = 0;
+		stats[1] = 0;
+		stats[2] = 1;
+		stats[3] = MOD_UNKNOWN;
+	}
+	else if (card == CARD_HIJACK)
+	{
+		stats[0] = 5;
+		stats[1] = 1;
+		stats[2] = 0;
+		stats[3] = MOD_HIT;
+	}
+	else
+	{
+		stats[0] = 0;
+		stats[1] = 0;
+		stats[2] = 0;
+		stats[3] = MOD_UNKNOWN;
+	}
+
+	return stats;
+}
+
+int determine_ai_goal (edict_t *ent)
+{
+	int counter;
+	int *stats;
+	int maxDamage;
+
+	// if i'm about to die, be defensive
+	if (ent->health < (ent->max_health >> 1))
+	{
+		return 1;
+	}
+	
+	counter = 0;
+	// check for game-winning conditions
+	while (counter < 3)
+	{
+
+		stats = determine_card_stats(ent->currentHand[counter]);
+		// if i can threaten lethal, try to deal the most damage
+		maxDamage = stats[0] * stats[1];
+		if (maxDamage >= ent->enemy->health)
+		{
+			return 0;
+		}
+		counter += 1;
+	}
+	// if i can't win, and i shouldn't lose, be annoying
+	return 2;
+}
+
+int decide_enemy_card (edict_t *ent)
+{
+	int chosen_card;
+	int chosen_card_position;
+	int *currentHand;
+	int goal;
+	int counter;
+	int *stats;
+
+	int damage_position;
+	int highest_damage;
+	int block_position;
+	int most_annoying;
+
+	currentHand = ent->currentHand;
+
+	damage_position = -1;
+	highest_damage = -1;
+	block_position = -1;
+	most_annoying = -1;
+
+	// Determine priority
+	goal = determine_ai_goal (ent);
+	// Determine best card in hand for this priority
+	// Be the most defensive
+	if (goal == 1)
+	{
+		counter = 0;
+		block_position = -1;
+		while (counter < 3)
+		{
+			if (ent->currentHand[counter] == CARD_HEAL)
+			{
+				chosen_card = CARD_HEAL;
+				ent->currentHand[counter] = -1;
+				return chosen_card;
+			}
+			if (ent->currentHand[counter] == CARD_BLOCK)
+			{
+				block_position = counter;
+			}
+
+			counter += 1;
+		}
+
+		if (block_position != -1)
+		{
+			chosen_card = CARD_BLOCK;
+			ent->currentHand[block_position] = -1;
+			return chosen_card;
+		}
+		goal = 2;
+	}
+
+	//FIXME
+	// Debugging
+	// Be the most annoying
+	if (goal == 2)
+	{
+		counter = 0;
+		while (counter < 3)
+		{
+			// if i benefit from healing, try to bite
+			if ((ent->currentHand[counter] == CARD_BITE) && (ent->health < ent->max_health - 5))
+			{
+				chosen_card = ent->currentHand[counter];
+				ent->currentHand[counter] = -1;
+				return chosen_card;
+			}
+			// otherwise, steal some cards
+			else if (ent->currentHand[counter] == CARD_HIJACK)
+			{
+				most_annoying = counter;
+			}
+			// Is it the CARD_HIJACK case???????
+			if (most_annoying != -1)
+			{
+				chosen_card = CARD_HIJACK;
+				//FIXME
+				// causes a crash. not sure why.
+				ent->currentHand[most_annoying] = -1;
+				return chosen_card;
+				
+			}
+			counter += 1;
+		}
+
+		// if i still can't find a situational card, just deal damage
+		goal = 0;
+	}
+	// Default to dealing the most damage
+	if (goal == 0)
+	{
+		counter = 0;
+		while (counter < 3)
+		{
+			stats = determine_card_stats(ent->currentHand[counter]);
+
+			if (stats[0] * stats[1] > highest_damage)
+			{
+				damage_position = counter;
+				highest_damage = stats[0] * stats[1];
+			}
+
+			counter += 1;
+		}
+
+		if (damage_position != -1)
+		{
+			chosen_card = ent->currentHand[damage_position];
+			ent->currentHand[damage_position] = -1;
+			return chosen_card;
+		}
+
+		// I don't think we should ever make it down here..
+		// If we do, just use the leftmost card that isn't -1
+
+		counter = 0;
+		while (counter < 3)
+		{
+			if (currentHand[counter] != -1)
+			{
+				chosen_card = ent->currentHand[counter];
+				ent->currentHand[counter] = -1;
+				return chosen_card;
+			}
+		}
+
+		// If we make it past here, there's a bug in the card draw
+		gi.bprintf(PRINT_CHAT, "ERROR: Enemy hand is empty");
+		// The hand should be full of hijack anyway, so just return that to avoid a crash or other bugs
+		return CARD_HIJACK;
+	}
+}
+
+void handle_card_damage (edict_t *attacker, edict_t *other, int damage, int times_dealt, qboolean other_block, int mod)
+{
+	int healthBefore;
+	int damageTaken;
+	char logString[256];
+	char *name;
+	edict_t *player;
+
+	healthBefore = other->health;
+
+	while (times_dealt > 0)
+	{
+		if (other_block)
+		{
+			if (damage >= 1)
+			{
+				T_Damage (other, attacker, attacker, vec3_origin, vec3_origin, vec3_origin, 1, 0, 0, mod);
+			}
+			other_block = false;
+		}
+		else
+		{
+			if (damage >= 0)
+			{
+				T_Damage (other, attacker, attacker, vec3_origin, vec3_origin, vec3_origin, damage, 0, 0, mod);
+			}
+		}
+		times_dealt -= 1;
+	}
+	if (other->client)
+	{
+		name = "Player";
+		player = other;
+	}
+	else
+	{
+		name = "The opponent";
+		player = attacker;
+	}
+
+	damageTaken = healthBefore - other->health;
+	if (damageTaken > 0)
+	{
+		Com_sprintf(logString, sizeof(logString),
+			"%s took %i damage!\n",
+			name,
+			damageTaken);
+		update_battle_log(player, logString);
+	}
+}
+
+void handle_card_effect (edict_t *ent, int card)
+{
+	if (card == CARD_BITE)
+	{
+		card_bite_effect (ent);
+	}
+	else if (card == CARD_HEAL)
+	{
+		card_heal_effect (ent);
+	}
+	else if (card == CARD_HIJACK)
+	{
+		card_hijack_effect (ent);
+	}
+}
+
+void start_battle (edict_t *ent)
+{
+	int counter;
+
+	counter = 0;
+	while (counter < 3)
+	{
+		ent->client->pers.currentHand[counter] = -1;
+		ent->client->pers.currentOpponent->currentHand[counter] = -1;
+		counter += 1;
+	}
+	counter = 0;
+	while (counter < 3)
+	{
+		Draw_Card (ent, ent->client->pers.deck, ent->client->pers.currentHand);
+		Draw_Card (ent->client->pers.currentOpponent, ent->client->pers.currentOpponent->deck, ent->client->pers.currentOpponent->currentHand);
+		counter += 1;
+	}
+	// Choose the first enemy card here
+	ent->client->pers.currentOpponent->chosenCard = decide_enemy_card(ent->client->pers.currentOpponent);
+
+	// Clear the battle log
+	ent->client->pers.numInLog = 0;
+	ent->client->pers.DB_selectedCard = 0;
+	counter = 0;
+	while (counter < 10)
+	{
+		// Also initializes it for first battle
+		Com_sprintf(ent->client->pers.battleLog[counter], sizeof(ent->client->pers.battleLog[counter]),
+			"");
+		counter += 1;
+	}
+}
+
+void end_battle (edict_t *ent)
+{
+	int counter;
+	int reward;
+
+	gi.bprintf(PRINT_CHAT, "Ending Battle\n");
+
+	// FIXME
+	// Small exploit when out of cards allows the player to generate HIJACK cards for free
+	// To be fair, HIJACK is not very good at anything, so this seems balanced regardless
+	counter = 0;
+	while (counter < 3)
+	{
+		ent->client->pers.deck[ent->client->pers.currentHand[counter]] += 1;
+		ent->client->pers.currentHand[counter] = -1;
+		counter += 1;
+	}
+	//Clear the battle log
+	ent->client->pers.numInLog = 0;
+
+	// Give them some reward cards
+	counter = 0;
+	while (counter < 4)
+	{
+		reward = rand() % (CARD_MAX - 1); // Don't reward them with BITE
+		if (reward == CARD_BITE)
+			reward += 1;
+		ent->client->pers.collection[reward] += 1;
+
+		counter += 1;
+	}
+
+	ent->client->pers.inBattle = false;
+	level.inBattle = false;
+	ent->client->showhelp = false;
+}
+
+void resolve_cards (edict_t *ent, int player_card)
+{
+	int enemy_card;
+	qboolean enemy_block;
+	qboolean player_block;
+	
+	int *temp_stats;
+	int player_stats[4];
+	int enemy_stats[4];
+
+	int player_health_before;
+	int enemy_health_before;
+	
+	edict_t *enemy;
+
+	enemy_block = false;
+	player_block = false;
+
+	enemy = ent->client->pers.currentOpponent;
+	enemy_card = enemy->chosenCard;
+
+	temp_stats = determine_card_stats(player_card);
+	player_stats[0] = temp_stats[0];
+	player_stats[1] = temp_stats[1];
+	player_stats[2] = temp_stats[2];
+	player_stats[3] = temp_stats[3];
+	if (player_stats[2] == 1)
+	{
+		player_block = true;
+	}
+
+	temp_stats = determine_card_stats(enemy_card);
+	enemy_stats[0] = temp_stats[0];
+	enemy_stats[1] = temp_stats[1];
+	enemy_stats[2] = temp_stats[2];
+	enemy_stats[3] = temp_stats[3];
+	if (enemy_stats[2] == 1)
+	{
+		enemy_block = true;
+	}
+	
+	//player attack
+	handle_card_damage (ent, enemy, player_stats[0], player_stats[1], enemy_block, player_stats[3]);
+	//enemy attack
+	handle_card_damage (enemy, ent, enemy_stats[0], enemy_stats[1], player_block, enemy_stats[3]);
+	
+	handle_card_effect(ent, player_card);
+	handle_card_effect(enemy, enemy_card);
+
+	if (enemy->health <= 0)
+	{
+		gi.bprintf(PRINT_CHAT, "Enemy health: %i\n", enemy->health);
+		gi.bprintf(PRINT_CHAT, "Battle over.\n");
+		end_battle(ent);
+		return;
+	}
+	if (ent->health <= 0)
+	{
+		end_battle(ent);
+	}
+	
+	Move_Cards (ent, ent->client->pers.currentHand);
+	Move_Cards (enemy, enemy->currentHand);
+
+	Draw_Card (ent, ent->client->pers.deck, ent->client->pers.currentHand);
+	Draw_Card (enemy, enemy->deck, enemy->currentHand);
+
+	// Enemy card should be decided down here for the next round?
+	enemy->chosenCard = decide_enemy_card(enemy);
+
+
+	Initialize_Battle_UI (ent);
+}
+
+
 void card_shotgun_fire (edict_t *ent)
 {
 	int dmgCount;
@@ -1272,27 +1866,37 @@ void card_shotgun_fire (edict_t *ent)
 	}
 }
 
-void Card_Shotgun (edict_t *ent, edict_t *item)
+void Card_Shotgun (edict_t *ent, gitem_t *item)
 {
-	card_shotgun_fire(ent);
+	resolve_cards(ent, CARD_SHOTGUN);
 }
 
-void card_block_attack (edict_t *ent) 
+void Card_Block (edict_t *ent, gitem_t *item)
 {
-	
+	resolve_cards(ent, CARD_BLOCK);
 }
 
-
-void Card_Block (edict_t *ent)
+void Card_Punch (edict_t *ent, gitem_t *item)
 {
-	static int	pause_frames[]	= {22, 28, 34, 0};
-	static int	fire_frames[]	= {8, 9, 0};
-
-	Weapon_Generic (ent, 7, 18, 36, 39, pause_frames, fire_frames, card_block_attack);
+	resolve_cards(ent, CARD_PUNCH);
 }
 
+void Card_Bite (edict_t *ent, gitem_t *item)
+{
+	resolve_cards(ent, CARD_BITE);
+}
 
-void weapon_supershotgun_fire (edict_t *ent)
+void Card_Heal (edict_t *ent, gitem_t *item)
+{
+	resolve_cards(ent, CARD_HEAL);
+}
+
+void Card_Hijack (edict_t *ent, gitem_t *item)
+{
+	resolve_cards(ent, CARD_HIJACK);
+}
+
+void weapon_supershotgun_fire (edict_t *ent, edict_t *item)
 {
 	vec3_t		start;
 	vec3_t		forward, right;

@@ -94,7 +94,9 @@ typedef enum
 	CARD_PUNCH,
 	CARD_BITE,
 	CARD_HEAL,
-	CARD_BLOCK
+	CARD_BLOCK,
+	CARD_HIJACK,
+	CARD_MAX
 } card_t;
 
 
@@ -329,6 +331,8 @@ typedef struct
 	int			body_que;			// dead bodies
 
 	int			power_cubes;		// ugly necessity for coop
+
+	qboolean	inBattle;			// whether the player is in a battle or not at this time
 } level_locals_t;
 
 
@@ -857,10 +861,16 @@ typedef struct
 	qboolean	spectator;			// client is a spectator
 
 	//Card Inventory and Decks
-	int collection[5];
+	int collection[CARD_MAX];
+	int deck[CARD_MAX];
 	int currentHand[3];
 	int numCards;
+	int DB_selectedCard;
+	char battleLog[10][256];
+	int  numInLog;
 	qboolean inBattle;
+	qboolean inDeckbuilding;
+	float lastDeckbuildingCmd;
 	edict_t *currentOpponent;
 
 } client_persistant_t;
@@ -1078,6 +1088,11 @@ struct edict_s
 	int			groundentity_linkcount;
 	edict_t		*teamchain;
 	edict_t		*teammaster;
+
+	int			deck[CARD_MAX];
+	int			currentHand[3];
+	qboolean	inBattle;
+	int			chosenCard;
 
 	edict_t		*mynoise;		// can go in client only
 	edict_t		*mynoise2;

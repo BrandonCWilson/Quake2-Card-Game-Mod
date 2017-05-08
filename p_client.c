@@ -588,6 +588,7 @@ but is called after each death and level change in deathmatch
 void InitClientPersistant (gclient_t *client)
 {
 	gitem_t		*item;
+	int counter;
 
 	memset (&client->pers, 0, sizeof(client->pers));
 
@@ -607,19 +608,26 @@ void InitClientPersistant (gclient_t *client)
 	client->pers.max_cells		= 200;
 	client->pers.max_slugs		= 50;
 
-	client->pers.collection[0]	= 0;
-	client->pers.collection[1]	= 0;
-	client->pers.collection[2]	= 0;
-	client->pers.collection[3]	= 0;
-	client->pers.collection[4]	= 0;
+	//Debug purposes. Default deck unknown.
+	counter = 0;
+	while (counter < CARD_MAX)
+	{
+		client->pers.collection[counter] = 0;
+		client->pers.deck[counter] = 1;
+		counter += 1;
+	}
 
-	client->pers.currentHand[0]		= 0;
-	client->pers.currentHand[1]		= 0;
-	client->pers.currentHand[2]		= 0;
+	client->pers.DB_selectedCard    = 0;
+
+	client->pers.currentHand[0]		= -1;
+	client->pers.currentHand[1]		= -1;
+	client->pers.currentHand[2]		= -1;
 
 	client->pers.numCards = 4;
 	client->pers.inBattle = false;
+	client->pers.inDeckbuilding = false;
 	client->pers.currentOpponent = NULL;
+	client->pers.lastDeckbuildingCmd = 0;
 
 	client->pers.connected = true;
 }
@@ -1600,7 +1608,7 @@ void ClientThink (edict_t *ent, usercmd_t *ucmd)
 		client->resp.cmd_angles[1] = SHORT2ANGLE(ucmd->angles[1]);
 		client->resp.cmd_angles[2] = SHORT2ANGLE(ucmd->angles[2]);
 
-	} else {
+	} else if (!level.inBattle) {
 
 		// set up for pmove
 		memset (&pm, 0, sizeof(pm));

@@ -20,8 +20,12 @@ void Weapon_GrenadeLauncher (edict_t *ent);
 void Weapon_Railgun (edict_t *ent);
 void Weapon_BFG (edict_t *ent);
 
-void Card_Shotgun (edict_t *ent);
-void Card_Block (edict_t *ent);
+void Card_Shotgun (edict_t *ent, gitem_t *item);
+void Card_Block (edict_t *ent, gitem_t *item);
+void Card_Punch(edict_t *ent, gitem_t *item);
+void Card_Bite(edict_t *ent, gitem_t *item);
+void Card_Heal(edict_t *ent, gitem_t *item);
+void Card_Hijack(edict_t *ent, gitem_t *item);
 
 gitem_armor_t jacketarmor_info	= { 25,  50, .30, .00, ARMOR_JACKET};
 gitem_armor_t combatarmor_info	= { 50, 100, .60, .30, ARMOR_COMBAT};
@@ -483,7 +487,7 @@ qboolean Add_Cards (edict_t *ent, gitem_t *item, int count)
 	ent->client->pers.collection[item->tag] += count;
 
 
-	gi.bprintf(PRINT_CHAT, "Cards added: %s", cardName->pickup_name);
+	gi.bprintf(PRINT_CHAT, "Cards added: %s", Get_Card_Name (item->tag));
 
 	return true;
 }
@@ -1324,7 +1328,7 @@ always owned, never in the world
 		Pickup_Card,
 		Card_Shotgun,
 		Drop_Card,
-		Card_Shotgun,
+		Weapon_Shotgun,
 		"misc/w_pkup.wav",
 		"models/weapons/g_shotg/tris.md2", EF_ROTATE,
 		"models/weapons/v_shotg/tris.md2",
@@ -1368,9 +1372,9 @@ always owned, never in the world
 	{
 		"weapon_machinegun", 
 		Pickup_Card,
-		Use_Card,
-		Drop_Card,
 		Card_Block,
+		Drop_Card,
+		Weapon_Machinegun,
 		"misc/w_pkup.wav",
 		"models/weapons/g_machn/tris.md2", EF_ROTATE,
 		"models/weapons/v_machn/tris.md2",
@@ -1390,9 +1394,9 @@ always owned, never in the world
 */
 	{
 		"weapon_chaingun", 
-		Pickup_Weapon,
-		Use_Weapon,
-		Drop_Weapon,
+		Pickup_Card,
+		Card_Punch,
+		Drop_Card,
 		Weapon_Chaingun,
 		"misc/w_pkup.wav",
 		"models/weapons/g_chain/tris.md2", EF_ROTATE,
@@ -1436,9 +1440,9 @@ always owned, never in the world
 */
 	{
 		"weapon_grenadelauncher",
-		Pickup_Weapon,
-		Use_Weapon,
-		Drop_Weapon,
+		Pickup_Card,
+		Card_Bite,
+		Drop_Card,
 		Weapon_GrenadeLauncher,
 		"misc/w_pkup.wav",
 		"models/weapons/g_launch/tris.md2", EF_ROTATE,
@@ -1459,9 +1463,9 @@ always owned, never in the world
 */
 	{
 		"weapon_rocketlauncher",
-		Pickup_Weapon,
-		Use_Weapon,
-		Drop_Weapon,
+		Pickup_Card,
+		Card_Heal,
+		Drop_Card,
 		Weapon_RocketLauncher,
 		"misc/w_pkup.wav",
 		"models/weapons/g_rocket/tris.md2", EF_ROTATE,
@@ -1482,9 +1486,9 @@ always owned, never in the world
 */
 	{
 		"weapon_hyperblaster", 
-		Pickup_Weapon,
-		Use_Weapon,
-		Drop_Weapon,
+		Pickup_Card,
+		Card_Hijack,
+		Drop_Card,
 		Weapon_HyperBlaster,
 		"misc/w_pkup.wav",
 		"models/weapons/g_hyperb/tris.md2", EF_ROTATE,

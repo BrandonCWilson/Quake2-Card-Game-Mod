@@ -88,6 +88,12 @@ void ai_stand (edict_t *self, float dist)
 {
 	vec3_t	v;
 
+	if (self->inBattle)
+	{
+		return;
+	}
+
+
 	if (dist)
 		M_walkmove (self, self->s.angles[YAW], dist);
 
@@ -327,17 +333,33 @@ void HuntTarget (edict_t *self)
 
 void FoundTarget (edict_t *self)
 {
+	int cardsToAdd;
+
+
 	// let other monsters see this monster for a while
 	if (self->enemy->client)
 	{
-		
-		Cmd_Battle_f (self->enemy);
-		self->enemy->client->pers.inBattle = true;
-		self->enemy->client->pers.currentOpponent = self;
+		if (self->enemy->client->pers.inBattle == false)
+		{
+			//Give a random deck to self
+			cardsToAdd = 10;
+			while (cardsToAdd > 0)
+			{
+				//Probably going to make a more deterministic card system in the future
+				//For now, this creates a deck that the A.I. will have to adapt to
+				//So random cards are more useful at this stage
+				self->deck[rand() % CARD_MAX] += 1;
+				cardsToAdd -= 1;
+			}
 
-		level.sight_entity = self;
-		level.sight_entity_framenum = level.framenum;
-		level.sight_entity->light_level = 128;
+			level.inBattle = true;
+			//Set up the battle to start
+			self->enemy->client->pers.currentOpponent = self;
+			Cmd_Battle_f (self->enemy);
+			level.sight_entity = self;
+			level.sight_entity_framenum = level.framenum;
+			level.sight_entity->light_level = 128;
+		}
 	}
 
 	self->show_hostile = level.time + 1;		// wake up other monsters
@@ -759,6 +781,8 @@ qboolean ai_checkattack (edict_t *self, float dist)
 	vec3_t		temp;
 	qboolean	hesDeadJim;
 
+	int cardsToAdd;
+
 // this causes monsters to run blindly to the combat point w/o firing
 	if (self->goalentity)
 	{
@@ -864,6 +888,33 @@ qboolean ai_checkattack (edict_t *self, float dist)
 //	}
 
 	enemy_infront = infront(self, self->enemy);
+
+	// Just to catch the AI in cases where they slip past the first trigger
+	if (enemy_infront)
+	{
+		if (self->enemy->client)
+		{
+			if (self->enemy->client->pers.inBattle == false)
+			{
+			//Give a random deck to self
+			cardsToAdd = 10;
+			while (cardsToAdd > 0)
+			{
+				//Probably going to make a more deterministic card system in the future
+				//For now, this creates a deck that the A.I. will have to adapt to
+				//So random cards are more useful at this stage
+				self->deck[rand() % CARD_MAX] += 1;
+				cardsToAdd -= 1;
+			}
+
+			level.inBattle = true;
+			//Set up the battle to start
+			self->enemy->client->pers.currentOpponent = self;
+			Cmd_Battle_f (self->enemy);
+			}
+		}
+	}
+
 	enemy_range = range(self, self->enemy);
 	VectorSubtract (self->enemy->s.origin, self->s.origin, temp);
 	enemy_yaw = vectoyaw(temp);

@@ -377,13 +377,9 @@ Use an inventory item
 void Cmd_Use_f (edict_t *ent)
 {
 	int			index;
+	int			usedCard;
 	gitem_t		*it;
 	char		*s;
-
-	if (!ent->client->pers.inBattle)
-	{
-		return;
-	}
 
 	/*
 	s = gi.args();
@@ -405,29 +401,53 @@ void Cmd_Use_f (edict_t *ent)
 		return;
 	}
 	*/
-	index = ent->client->pers.currentHand[strtol(gi.args(), (char **)NULL, 10)];
+	index = ent->client->pers.DB_selectedCard;
+	usedCard = ent->client->pers.currentHand[index];
 
-	if (ent->client->pers.currentHand[index] == CARD_SHOTGUN)
-		{
-			it = FindItem ("Shotgun");
-		}
-		else if (ent->client->pers.currentHand[index] == CARD_PUNCH)
-		{
-			it = FindItem ("Machinegun");
-		}
-		else if (ent->client->pers.currentHand[index] == CARD_BITE)
-		{
-			it = FindItem ("Shotgun");
-		}
-		else if (ent->client->pers.currentHand[index] == CARD_HEAL)
-		{
-			it = FindItem ("Shotgun");
-		}
-		else if (ent->client->pers.currentHand[index] == CARD_BLOCK)
-		{
-			it = FindItem ("Shotgun");
-		}
+	gi.bprintf(PRINT_CHAT, "Calling the use function\n");
+	if (ent->client->pers.inDeckbuilding)
+	{
+		gi.bprintf(PRINT_CHAT, "Calling the add function\n");
+		Cmd_AddCard_f (ent);
+		return;
+	}
 
+	//FIXME
+	if (usedCard == CARD_SHOTGUN)
+	{
+		it = FindItem ("Shotgun");
+	}
+	else if (usedCard == CARD_PUNCH)
+	{
+		it = FindItem ("Chaingun");
+	}
+	else if (usedCard == CARD_BITE)
+	{
+		it = FindItem ("Grenade Launcher");
+	}
+	else if (usedCard == CARD_HEAL)
+	{
+		it = FindItem ("Rocket Launcher");
+	}
+	else if (usedCard == CARD_BLOCK)
+	{
+		it = FindItem ("Machinegun");
+	}
+	else if (usedCard == CARD_HIJACK)
+	{
+		it = FindItem("HyperBlaster");
+	}
+	else
+	{
+		gi.bprintf(PRINT_CHAT, "ERROR: Card slot empty\n");
+		return;
+	}
+		
+	//Set card ID to -1, to denote the slot as empty
+	ent->client->pers.currentHand[index] = -1;
+	gi.bprintf (PRINT_CHAT, "Used card slot: %i \n", index);
+	//gi.bprintf (PRINT_CHAT, "Current hand: %i %i %i \n", ent->client->pers.currentHand[0], ent->client->pers.currentHand[1], ent->client->pers.currentHand[2]);
+	//Use the card
 	it->use (ent, it);
 }
 
@@ -954,6 +974,11 @@ void ClientCommand (edict_t *ent)
 		Cmd_Battle_f (ent);
 		return;
 	}
+	if (Q_stricmp (cmd, "deckbuilding") == 0)
+	{
+		Cmd_Deckbuilding_f (ent);
+		return;
+	}
 
 	if (level.intermissiontime)
 		return;
@@ -1002,6 +1027,12 @@ void ClientCommand (edict_t *ent)
 		Cmd_Wave_f (ent);
 	else if (Q_stricmp(cmd, "playerlist") == 0)
 		Cmd_PlayerList_f(ent);
+	else if (Q_stricmp(cmd, "nextcard") == 0)
+		Cmd_NextCard_f (ent);
+	else if (Q_stricmp(cmd, "prevcard") == 0)
+		Cmd_PrevCard_f (ent);
+	else if ((Q_stricmp(cmd, "removecard") == 0) && (ent->client->pers.inDeckbuilding))
+		Cmd_RemoveCard_f (ent);
 	else	// anything that doesn't match a command will be a chat
 		Cmd_Say_f (ent, false, true);
 }

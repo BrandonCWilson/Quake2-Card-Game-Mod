@@ -318,155 +318,486 @@ void HelpComputer (edict_t *ent)
 
 /*
 ==================
-Battle_UI
+Get_Card_Name
 
-Draw the card selection screen
+Get the name of the specified cards based on their card ID
 ==================
 */
-void Battle_UI (edict_t *ent)
+
+char * Get_Card_Name (card_t card)
 {
-	char	string[1024];
-	char	*sk;
+	static char cardName[128];
+
+	if (card == CARD_BITE)
+	{
+		Com_sprintf(cardName, sizeof(cardName),
+			"Vicious Bite");
+	}
+	else if (card == CARD_BLOCK)
+	{
+		Com_sprintf(cardName, sizeof(cardName),
+			"Block Attack");
+	}
+	else if (card == CARD_HEAL)
+	{
+		Com_sprintf(cardName, sizeof(cardName),
+			"Restore Health");
+	}
+	else if (card == CARD_PUNCH)
+	{
+		Com_sprintf(cardName, sizeof(cardName),
+			"Brute Punch");
+	}
+	else if (card == CARD_SHOTGUN)
+	{
+		Com_sprintf(cardName, sizeof(cardName),
+			"Shotgun Attack");
+	}
+	else if (card == CARD_HIJACK)
+	{
+		Com_sprintf(cardName, sizeof(cardName),
+			"Hijack Weapon");
+	}
+	else
+	{
+		Com_sprintf(cardName, sizeof(cardName),
+			"Error: Unknown card.");
+	}
+
+	return cardName;
+}
+
+/*
+==================
+Get_Card_Desc
+
+Get the description of the specified cards based on their card ID
+==================
+*/
+
+char * Get_Card_Desc (card_t card)
+{
+	static char cardDesc[128];
+
+	if (card == CARD_BITE)
+	{
+		Com_sprintf(cardDesc, sizeof(cardDesc),
+			"Deal 10 damage to the enemy,\n and shuffle this\n into your opponent's deck.");
+	}
+	else if (card == CARD_BLOCK)
+	{
+		Com_sprintf(cardDesc, sizeof(cardDesc),
+			"During this turn, \n all damage is reduced to 1.");
+	}
+	else if (card == CARD_HEAL)
+	{
+		Com_sprintf(cardDesc, sizeof(cardDesc),
+			"Heal yourself for 15 health.");
+	}
+	else if (card == CARD_PUNCH)
+	{
+		Com_sprintf(cardDesc, sizeof(cardDesc),
+			"Deal 10 damage to the enemy.");
+	}
+	else if (card == CARD_SHOTGUN)
+	{
+		Com_sprintf(cardDesc, sizeof(cardDesc),
+			"Deal 3 damage to the enemy, \n 5 times.");
+	}
+	else if (card == CARD_HIJACK)
+	{
+		Com_sprintf(cardDesc, sizeof(cardDesc),
+			"Draw a card from your\n opponent's deck, and shuffle\n it into yours.");
+	}
+	else
+	{
+		Com_sprintf(cardDesc, sizeof(cardDesc),
+			"Error: Unknown card.");
+	}
+
+	return cardDesc;
+}
+
+/*
+==================
+Initialize_Deckbuilding_UI
+
+Draw the interface for deckbuilding and collection management
+==================
+*/
+
+//This is a modified version of the battle screen UI. Expect to make a fair number of changes in the general logic and implementation.
+void Initialize_Deckbuilding_UI (edict_t *ent)
+{
+	char	string[2048 + 2048 + 2048];
 	int cardPositionX;
 	int cardPositionY;
 	int cardCount;
-	char	cardName[3][1024];
-	char	cardDesc[4][1024];
+	char	cardName[CARD_MAX][128];
+	char	cardDesc[CARD_MAX][256];
+	char	cardHUD[1024 + 1024];
+	char	deckCount[CARD_MAX][128];
+	char	numInDeck[3];
+	int numInvisible;
+	// Debug
+
+	cardCount = CARD_MAX;
+	
+	cardPositionX = 32 - cardCount * 50;
+	cardPositionY = 200;
+	Com_sprintf(string, sizeof(string),
+		"");
+
+	while (cardCount > 0)
+	{
+		Com_sprintf (cardName[cardCount - 1], sizeof(cardName[cardCount - 1]), Get_Card_Name(cardCount - 1));
+
+		cardCount -= 1;
+	}
+
+	cardCount = CARD_MAX;
+
+	while (cardCount > 0)
+	{		
+		Com_sprintf (cardDesc[cardCount - 1], sizeof(cardDesc[cardCount - 1]), Get_Card_Desc(cardCount - 1));
+
+		cardCount -= 1;
+	}
+	
+	// Debug
+	// Generate the cards for reference
+	// Only show the selected card and its details.
+	Com_sprintf(cardHUD, sizeof(cardHUD),
+		"xv %i yv %i picn help "								// background
+		"xv %i yv %i cstring2 \"%s\" "							// card name
+		"xv %i yv %i cstring2 \"%s\" "
+		"xv %i yv %i cstring \"%s\" "
+		"xv %i yv %i cstring \"%s%i\" ",							// card desc
+
+		32,				// X background
+		-275 + 8 + cardPositionY,	// Y background
+		0,				// X name
+		-275 + 24 + cardPositionY,		// Y name
+		cardName[ent->client->pers.DB_selectedCard],											// Name
+		0,				// X desc
+		-275 + 54 + cardPositionY,		// Y desc
+		cardDesc[ent->client->pers.DB_selectedCard],
+		
+		0,
+		-190 + 24 + cardPositionY,
+		ent->client->pers.DB_selectedCard == CARD_BITE ? "Cannot be manually added \nor removed from deck." : "",
+
+		0,				// X name
+		-150 + 24 + cardPositionY,
+		"Stored: ",
+		ent->client->pers.collection[ent->client->pers.DB_selectedCard]);
+		
+	strcat(string, cardHUD);
+
+	// Not displaying properly
+	// Going to try developing a new system for it in the UI
+	// Generate the current deck details
+	cardCount = 0;
+	numInvisible = 0;
+	while (cardCount < CARD_MAX)
+	{
+		//Iterate through the deck
+		//Print out any cards that are in it, and the number of that card
+		if (ent->client->pers.deck[cardCount] != 0)
+		{
+			strcat(cardName[cardCount], ":");
+			Com_sprintf(deckCount[cardCount], sizeof(deckCount[cardCount]),
+				"xv %i yv %i cstring \"%s\" "
+				"xv %i yv %i cstring %i ",
+				
+				0,													
+				-200 + 20 * (cardCount - numInvisible),									
+				cardName[cardCount],
+				
+				100,
+				-200 + 20 * (cardCount - numInvisible),
+				ent->client->pers.deck[cardCount]);
+		
+			strcat(string, deckCount[cardCount]);
+
+		}
+		else
+		{
+			numInvisible += 1;
+		}
+
+		cardCount += 1;
+	}
+	// send the layout
+	gi.WriteByte (svc_layout);
+	gi.WriteString (string);
+	gi.unicast (ent, true);
+}
+
+
+
+
+/*
+==================
+Initialize_Battle_UI
+
+Draw the card selection screen at the start of a battle
+==================
+*/
+void Initialize_Battle_UI (edict_t *ent)
+{
+	char	string[1024];
+	char	*sk;
+	char	battleLog[1024];
+	int cardPositionX;
+	int cardPositionY;
+	int cardCount;
+	int battleLogCount;
+	char	cardName[4][1024];
+	char	cardDesc[5][1024];
 
 	cardCount = ent->client->pers.numCards;
 	
 	cardPositionX = 32 - cardCount * 75;
 	cardPositionY = 200;
 
-	if (skill->value == 0)
-		sk = "easy";
-	else if (skill->value == 1)
-		sk = "medium";
-	else if (skill->value == 2)
-		sk = "hard";
-	else
-		sk = "hard+";
-
 	while (cardCount > 0)
 	{
-		if (ent->client->pers.currentHand[cardCount - 1] == CARD_SHOTGUN)
-		{
-			Com_sprintf (cardName[cardCount - 1], sizeof(cardName[cardCount - 1]),
-				"Shotgun Attack");
-		}
-		else if (ent->client->pers.currentHand[cardCount - 1] == CARD_PUNCH)
-		{
-			Com_sprintf (cardName[cardCount - 1], sizeof(cardName[cardCount - 1]),
-				"Brute Punch");
-		}
-		else if (ent->client->pers.currentHand[cardCount - 1] == CARD_BITE)
-		{
-			Com_sprintf (cardName[cardCount - 1], sizeof(cardName[cardCount - 1]),
-				"Vicious Bite");
-		}
-		else if (ent->client->pers.currentHand[cardCount - 1] == CARD_HEAL)
-		{
-			Com_sprintf (cardName[cardCount - 1], sizeof(cardName[cardCount - 1]),
-				"Restore Health");
-		}
-		else if (ent->client->pers.currentHand[cardCount - 1] == CARD_BLOCK)
-		{
-			Com_sprintf (cardName[cardCount - 1], sizeof(cardName[cardCount - 1]),
-				"Block Attack");
-		}
-		else
-		{
-			Com_sprintf (cardName[cardCount - 1], sizeof(cardName[cardCount - 1]),
-				"Error: Unknown card.");
-		}
+		Com_sprintf (cardName[cardCount - 1], sizeof(cardName[cardCount - 1]), Get_Card_Name(ent->client->pers.currentHand[cardCount - 1]));
 
 		cardCount -= 1;
 	}
 
 	cardCount = ent->client->pers.numCards;
-
+	Com_sprintf (cardName[cardCount - 1], sizeof(cardName[cardCount - 1]), Get_Card_Name(ent->client->pers.currentOpponent->chosenCard));
+	Com_sprintf (cardDesc[cardCount - 1], sizeof(cardDesc[cardCount - 1]), Get_Card_Desc(ent->client->pers.currentOpponent->chosenCard));
+	cardCount -= 1;
 	while (cardCount > 0)
-	{
-		if (ent->client->pers.currentHand[cardCount - 1] == CARD_SHOTGUN)
-		{
-			strcpy (cardDesc[cardCount - 1],
-				"Deal 3 damage to the enemy, \n 5 times.");
-			
-		}
-		else if (ent->client->pers.currentHand[cardCount - 1] == CARD_PUNCH)
-		{
-			Com_sprintf (cardDesc[cardCount - 1], sizeof(cardDesc[cardCount - 1]),
-				"Deal 10 damage to the enemy.");
-		}
-		else if (ent->client->pers.currentHand[cardCount - 1] == CARD_BITE)
-		{
-			Com_sprintf (cardDesc[cardCount - 1], sizeof(cardDesc[cardCount - 1]),
-				"Deal 10 damage to the enemy,\n and shuffle this back into\n your deck.");
-		}
-		else if (ent->client->pers.currentHand[cardCount - 1] == CARD_HEAL)
-		{
-			Com_sprintf (cardDesc[cardCount - 1], sizeof(cardDesc[cardCount - 1]),
-				"Heal yourself for 15 health.");
-		}
-		else if (ent->client->pers.currentHand[cardCount - 1] == CARD_BLOCK)
-		{
-			Com_sprintf (cardDesc[cardCount - 1], sizeof(cardDesc[cardCount - 1]),
-				"During this turn, \n all damage is reduced to 1.");
-		}
-		else
-		{
-			Com_sprintf (cardDesc[cardCount - 1], sizeof(cardDesc[cardCount - 1]),
-				"Error: Unknown card.");
-		}
+	{		
+		Com_sprintf (cardDesc[cardCount - 1], sizeof(cardDesc[cardCount - 1]), Get_Card_Desc(ent->client->pers.currentHand[cardCount - 1]));
 
 		cardCount -= 1;
 	}
 
-
 	// send the layout
 	Com_sprintf (string, sizeof(string),
 		"xv %i yv %i picn help "			// background
-		"xv %i yv %i cstring2 \"%s\" "		// level name
-		"xv %i yv %i cstring2 \"%s\" "		// help 1
+		"xv %i yv %i cstring2 \"%s\" "		// card1 name
+		"xv %i yv %i cstring2 \"%s\" "		// card1 text
 		
 		"xv %i yv %i picn help "			// background
-		"xv %i yv %i cstring2 \"%s\" "		// level name
-		"xv %i yv %i cstring2 \"%s\" "		// help 1
+		"xv %i yv %i cstring2 \"%s\" "		// card2 name
+		"xv %i yv %i cstring2 \"%s\" "		// card2 text
 		
 		"xv %i yv %i picn help "			// background
-		"xv %i yv %i cstring2 \"%s\" "		// level name
-		"xv %i yv %i cstring2 \"%s\" ",		// help 1,
+		"xv %i yv %i cstring2 \"%s\" "		// card3 name
+		"xv %i yv %i cstring2 \"%s\" "		// card3 text
 		
+		"xv %i yv %i picn help "			// background
+		"xv %i yv %i cstring2 \"%s\" "		// enemy card name
+		"xv %i yv %i cstring2 \"%s\" "		// enemy card text
+		
+		"xv %i yv %i cstring2 \"%s\" "		// battle log??????
+		"xv %i yv %i cstring2 \"%s\" "		// battle log??????
+		"xv %i yv %i cstring2 \"%s\" "
+		
+		"xv %i yv %i cstring2 \"%s%i\" ",	// enemy health
+
+		// FIXME
+		// Change UI logic to base positions on the number of cards in a player's hand
+
 		32 + cardPositionX,
-		8 + cardPositionY,
+		8 + cardPositionY - 10 * (ent->client->pers.DB_selectedCard == 0),
 		0 + cardPositionX,
-		24 + cardPositionY,
+		24 + cardPositionY - 10 * (ent->client->pers.DB_selectedCard == 0),
 		cardName[0], 
 		0 + cardPositionX,
-		54 + cardPositionY,
+		54 + cardPositionY - 10 * (ent->client->pers.DB_selectedCard == 0),
 		cardDesc[0],
 		
 		32,
-		8 + cardPositionY,
+		8 + cardPositionY - 10 * (ent->client->pers.DB_selectedCard == 1),
 		0,
-		24 + cardPositionY,
+		24 + cardPositionY - 10 * (ent->client->pers.DB_selectedCard == 1),
 		cardName[1], 
 		0,
-		54 + cardPositionY,
+		54 + cardPositionY - 10 * (ent->client->pers.DB_selectedCard == 1),
 		cardDesc[1],
 		
 		32 - cardPositionX,
-		8 + cardPositionY,
+		8 + cardPositionY - 10 * (ent->client->pers.DB_selectedCard == 2),
 		0 - cardPositionX,
-		24 + cardPositionY,
+		24 + cardPositionY - 10 * (ent->client->pers.DB_selectedCard == 2),
 		cardName[2], 
 		0 - cardPositionX,
-		54 + cardPositionY,
-		cardDesc[2]);
+		54 + cardPositionY - 10 * (ent->client->pers.DB_selectedCard == 2),
+		cardDesc[2],
+		
+		32,
+		-350 + 8 + cardPositionY,
+		0,
+		-350 + 24 + cardPositionY,
+		cardName[3], 
+		0,
+		-350 + 54 + cardPositionY,
+		cardDesc[3],
+		
+		0 + cardPositionX,
+		-250 + 24 + cardPositionY + 10,
+		ent->client->pers.battleLog[0],
+		0 + cardPositionX,
+		-250 + 24 + cardPositionY + 20,
+		ent->client->pers.battleLog[1],
+		0 + cardPositionX,
+		-250 + 24 + cardPositionY + 30,
+		ent->client->pers.battleLog[2],
+		
+		0 + cardPositionX,
+		-350 + 24 + cardPositionY,
+		"ENEMY HEALTH: ",
+		ent->client->pers.currentOpponent->health);
 
 	gi.WriteByte (svc_layout);
 	gi.WriteString (string);
 	gi.unicast (ent, true);
+	
+}
+
+
+/*
+==================
+Draw_Card
+
+Handle card draw after a round
+==================
+*/
+
+void Draw_Card (edict_t *ent, int *deck, int *currentHand)
+{
+	int counter;
+	int deckSize;
+	int newCard;
+	int cardThreshold;
+	int emptySlot;
+
+	// FIXME
+	// Various situations where "Hand is full" occurs, for reasons not yet understood.
+	// Find out what is causing this and whether it is a bug or the draw executing properly.
+
+	counter = 0;
+	deckSize = 0;
+	while (counter < CARD_MAX)
+	{
+		deckSize += deck[counter];
+		counter += 1;
+	}
+	if (deckSize <= 0)
+	{
+		// When your deck is empty, draw a hijack
+		if (ent->client)
+			gi.bprintf(PRINT_CHAT, "You're ");
+		else
+			gi.bprintf(PRINT_CHAT, "The opponent is ");
+		gi.bprintf(PRINT_CHAT, "out of cards!\n");
+
+		newCard = CARD_HIJACK;
+	}
+	else
+	{
+		// Otherwise, find a card from your deck
+		newCard = rand() % deckSize + 1;
+
+		counter = 0;
+		cardThreshold = 0;
+		while (counter < CARD_MAX)
+		{
+			cardThreshold += deck[counter];
+			if (newCard <= cardThreshold)
+			{
+				newCard = counter;
+				if (deck[counter] <= 0)
+					gi.bprintf(PRINT_CHAT, "We're drawing a card that doesn't exist.\n");
+				break;
+			}
+			counter += 1;
+		}
+		if (counter == CARD_MAX)
+		{
+			// This should never happen. If it does, print this out
+			gi.bprintf(PRINT_CHAT, "ERROR: no card found in deck. newCard = %i. deckSize = %i", newCard, deckSize);
+		}
+	}
+	
+
+	counter = 0;
+	while (counter < 3)
+	{
+		if (currentHand[counter] == -1)
+		{
+			//Add it to the leftmost empty hand position, temporarily remove it from deck
+			currentHand[counter] = newCard;
+			if (deckSize > 0)
+				deck[newCard] -= 1;
+			/*
+			if (ent->client)
+				gi.bprintf(PRINT_CHAT, "Player ");
+			gi.bprintf(PRINT_CHAT, "Card drawn: %i\n", newCard);
+			if (ent->client)
+				gi.bprintf(PRINT_CHAT, "Player ");
+			gi.bprintf(PRINT_CHAT, "Hand: %i %i %i \n", currentHand[0], currentHand[1], currentHand[2]);
+			*/
+			return;
+		}
+		counter += 1;
+	}
+	if (counter == 3)
+	{
+		gi.bprintf(PRINT_CHAT, "ERROR: Hand is full. \n");
+	}
+}
+
+/*
+==================
+Move_Cards
+
+Handle card draw after a round
+==================
+*/
+
+void Move_Cards (edict_t *ent, int *currentHand)
+{
+	int emptySlot;
+	int counter;
+	qboolean foundEmpty;
+
+	counter = 0;
+	foundEmpty = false;
+
+	while (counter < 3)
+	{
+		//If we find a card to the right of an empty position, move it
+		if (foundEmpty)
+		{
+			if (currentHand[counter] != -1)
+			{
+				break;
+			}
+		}
+		else if (currentHand[counter] == -1)
+		{
+			foundEmpty = true;
+		}
+
+		counter += 1;
+	}
+	//If nothing needs to be moved
+	if (counter == 3)
+	{
+		return;
+	}
+	currentHand[counter - 1] = currentHand[counter];
+	currentHand[counter] = -1;
+	Move_Cards(ent, currentHand);
 }
 
 
@@ -500,8 +831,109 @@ void Cmd_Help_f (edict_t *ent)
 	HelpComputer (ent);
 }
 
-void Cmd_Battle_f (edict_t *ent)
+void Cmd_NextCard_f (edict_t *ent)
 {
+	// Prevent the commands from overflowing
+	if (level.time - (ent->client->pers.lastDeckbuildingCmd) < 0.05)
+	{
+		return;
+	}
+
+
+	if (ent->client->pers.inDeckbuilding)
+	{
+		if (ent->client->pers.DB_selectedCard >= CARD_MAX - 1)
+		{
+			return;
+		}
+		ent->client->pers.DB_selectedCard += 1;
+		Initialize_Deckbuilding_UI (ent);
+		ent->client->pers.lastDeckbuildingCmd = level.time;
+	}
+	else if (ent->client->pers.inBattle)
+	{
+		if (ent->client->pers.DB_selectedCard >= 2)
+		{
+			return;
+		}
+		ent->client->pers.DB_selectedCard += 1;
+		Initialize_Battle_UI (ent);
+		ent->client->pers.lastDeckbuildingCmd = level.time;
+	}
+}
+
+void Cmd_PrevCard_f (edict_t *ent)
+{
+	// Prevent the commands from overflowing
+	if (level.time - (ent->client->pers.lastDeckbuildingCmd) < 0.05)
+	{
+		return;
+	}
+
+	if (ent->client->pers.inDeckbuilding)
+	{
+		if (ent->client->pers.DB_selectedCard <= 0)
+		{
+			return;
+		}
+		ent->client->pers.DB_selectedCard -= 1;
+		Initialize_Deckbuilding_UI (ent);
+		ent->client->pers.lastDeckbuildingCmd = level.time;
+	}
+	else if (ent->client->pers.inBattle)
+	{
+		if (ent->client->pers.DB_selectedCard <= 0)
+		{
+			return;
+		}
+		ent->client->pers.DB_selectedCard -= 1;
+		Initialize_Battle_UI (ent);
+		ent->client->pers.lastDeckbuildingCmd = level.time;
+	}
+}
+
+void Cmd_AddCard_f (edict_t *ent)
+{
+	if (ent->client->pers.DB_selectedCard == CARD_BITE)
+	{
+		return;
+	}
+	if (ent->client->pers.deck[ent->client->pers.DB_selectedCard] >= 5)
+	{
+		return;
+	}
+	if (ent->client->pers.collection[ent->client->pers.DB_selectedCard] > 0)
+	{
+		ent->client->pers.collection[ent->client->pers.DB_selectedCard] -= 1;
+		ent->client->pers.deck[ent->client->pers.DB_selectedCard] += 1;
+		Initialize_Deckbuilding_UI (ent);
+	}
+
+}
+
+
+void Cmd_RemoveCard_f (edict_t *ent)
+{
+	if (ent->client->pers.DB_selectedCard == CARD_BITE)
+	{
+		return;
+	}
+	if (ent->client->pers.deck[ent->client->pers.DB_selectedCard] <= 0)
+	{
+		return;
+	}
+
+	ent->client->pers.deck[ent->client->pers.DB_selectedCard] -= 1;
+	ent->client->pers.collection[ent->client->pers.DB_selectedCard] += 1;
+	Initialize_Deckbuilding_UI (ent);
+}
+
+void Cmd_Deckbuilding_f (edict_t *ent)
+{
+	//This is not the proper logic
+	//Fix me later for battle start
+	if (!ent->client)
+		return;
 	// this is for backwards compatability
 	if (deathmatch->value)
 	{
@@ -512,15 +944,48 @@ void Cmd_Battle_f (edict_t *ent)
 	ent->client->showinventory = false;
 	ent->client->showscores = false;
 
-	if (ent->client->showhelp && (ent->client->pers.game_helpchanged == game.helpchanged))
+	if (ent->client->pers.inDeckbuilding)
 	{
+		ent->client->pers.inDeckbuilding = false;
 		ent->client->showhelp = false;
 		return;
 	}
 
+	ent->client->pers.inDeckbuilding = true;
+	ent->client->pers.DB_selectedCard = 0;
 	ent->client->showhelp = true;
 	ent->client->pers.helpchanged = 0;
-	Battle_UI (ent);
+	Initialize_Deckbuilding_UI (ent);
+}
+
+void Cmd_Battle_f (edict_t *ent)
+{
+	//This is not the proper logic
+	//Fix me later for battle start
+
+	// this is for backwards compatability
+	if (deathmatch->value)
+	{
+		Cmd_Score_f (ent);
+		return;
+	}
+
+	ent->client->showinventory = false;
+	ent->client->showscores = false;
+
+	if (ent->client->pers.inBattle)
+	{
+		//If player is busy, do nothing
+		return;
+	}
+
+	ent->client->pers.inDeckbuilding = false;
+	ent->client->pers.inBattle = true;
+	ent->client->showhelp = true;
+	ent->client->pers.helpchanged = 0;
+	start_battle (ent);
+	gi.bprintf (PRINT_CHAT, "No errors so far.\n");
+	Initialize_Battle_UI (ent);
 }
 
 
